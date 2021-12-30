@@ -1,10 +1,11 @@
-import {Inject, Injectable} from "@nestjs/common";
+import {Inject, Injectable, Logger} from "@nestjs/common";
 import {MobileApplicationRepository} from "../MobileApplicationRepository";
 import {PushNotificationsRepository} from "../PushNotificationsRepository";
 import admin from "firebase-admin";
 
 @Injectable()
 export class PushNotificationsRepositoryImpl implements PushNotificationsRepository {
+    private readonly logger = new Logger(PushNotificationsRepositoryImpl.name);
     constructor(
         @Inject('MobileApplicationRepository')
         private mobileApplicationRepository: MobileApplicationRepository
@@ -38,6 +39,7 @@ export class PushNotificationsRepositoryImpl implements PushNotificationsReposit
                     if (typeof application.notificationToken === 'string' && application.notificationToken.length) {
                         notification.token = application.notificationToken;
                         ((mobileApp) => {
+                            this.logger.debug(`Sending push notification to: ${notification.token}`);
                             return admin
                                 .messaging()
                                 .send(notification)
