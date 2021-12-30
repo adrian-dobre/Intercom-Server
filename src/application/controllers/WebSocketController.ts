@@ -1,7 +1,7 @@
 import {Server, WebSocket} from "ws";
 import {createServer} from "http";
 import {Helpers} from "../utils/Helpers";
-import {Controller, Inject} from "@nestjs/common";
+import {Controller, Inject, Logger} from "@nestjs/common";
 import {ClientInformation, ClientType} from "./dto/ClientInformation";
 import {IntercomDevice, IntercomDeviceStatus} from "../../domain/entities/IntercomDevice";
 import {UserRepository} from "../../infrastructure/repositories/UserRepository";
@@ -22,6 +22,8 @@ const connectedMobileApplications: { [userId: string]: WebSocket[] } = {};
 @Controller()
 export class WebSocketController {
     private wss: Server;
+
+    private readonly logger = new Logger(WebSocketController.name);
 
     constructor(
         @Inject("UserRepository")
@@ -50,11 +52,14 @@ export class WebSocketController {
     }
 
     private sendIntercomConfigUpdate(updateEvent: { entity: IntercomDevice; changedProperties: string[] }) {
+        this.logger.debug(`Intercom device updated. Changed props: ${updateEvent.changedProperties.join('')}`);
         if (this.isIntercomConfigUpdate(updateEvent)) {
             const connectedDevices = connectedIntercomDevices[updateEvent.entity.id];
             if (Array.isArray(connectedDevices)) {
+                const intercomConfigUpdate = `${IntercomDeviceMessageType.IntercomConfiguration}:${updateEvent.entity.getIntercomFormattedConfig()}`;
+                this.logger.debug(`Sending intercom device config update: ${intercomConfigUpdate}`);
                 connectedDevices.forEach((connectedDevice) => {
-                    connectedDevice.send(`${IntercomDeviceMessageType.IntercomConfiguration}:${updateEvent.entity.getIntercomFormattedConfig()}`);
+                    connectedDevice.send(intercomConfigUpdate);
                 });
             }
         }
@@ -173,38 +178,45 @@ export class WebSocketController {
     }
 
     private handleIntercomMessage(device: IntercomDevice, client: WebSocket, message) {
-        device.lastSeen = Date.now();
-        let parsedMessage = this.parseMessageType(message.toString());
-        switch (parsedMessage.type) {
-            case IntercomDeviceMessageType.IntercomConfiguration:
-                const config = device.getIntercomFormattedConfig();
-                if (config !== parsedMessage.params.join(':')) {
-                    client.send(`${IntercomDeviceMessageType.IntercomConfiguration}:${config}`)
+        this.intercomDeviceRepository
+            .findById(device.id)
+            .then(intercomDevice => {
+                if (intercomDevice == null) {
+                    return
                 }
-                break;
-            case IntercomDeviceMessageType.IntercomStatusEvent:
-                let status = parsedMessage.params[0];
-                device.lastStatus = status;
-                if (status === IntercomDeviceStatus.Ring) {
-                    this.handleNewIntercomIncomingCall(device);
-                } else if ([IntercomDeviceStatus.Talk, IntercomDeviceStatus.Open, IntercomDeviceStatus.Ready].includes(status)) {
-                    this.handleIntercomStatusUpdate(device, status);
+                intercomDevice.lastSeen = Date.now();
+                let parsedMessage = this.parseMessageType(message.toString());
+                switch (parsedMessage.type) {
+                    case IntercomDeviceMessageType.IntercomConfiguration:
+                        const config = intercomDevice.getIntercomFormattedConfig();
+                        if (config !== parsedMessage.params.join(':')) {
+                            client.send(`${IntercomDeviceMessageType.IntercomConfiguration}:${config}`)
+                        }
+                        break;
+                    case IntercomDeviceMessageType.IntercomStatusEvent:
+                        let status = parsedMessage.params[0];
+                        intercomDevice.lastStatus = status;
+                        if (status === IntercomDeviceStatus.Ring) {
+                            this.handleNewIntercomIncomingCall(intercomDevice);
+                        } else if ([IntercomDeviceStatus.Talk, IntercomDeviceStatus.Open, IntercomDeviceStatus.Ready].includes(status)) {
+                            this.handleIntercomStatusUpdate(intercomDevice, status);
+                        }
+                    // fallthrough to default (send status to mobile apps)
+                    default:
+                        let apps = connectedMobileApplications[intercomDevice.userId];
+                        if (Array.isArray(apps)) {
+                            const _message = JSON.stringify({
+                                type: parsedMessage.type,
+                                params: parsedMessage.params,
+                                deviceId: intercomDevice.id
+                            });
+                            apps.forEach((app) => {
+                                app.send(_message);
+                            });
+                        }
                 }
-            // fallthrough to default (send status to mobile apps)
-            default:
-                let apps = connectedMobileApplications[device.userId];
-                if (Array.isArray(apps)) {
-                    const _message = JSON.stringify({
-                        type: parsedMessage.type,
-                        params: parsedMessage.params,
-                        deviceId: device.id
-                    });
-                    apps.forEach((app) => {
-                        app.send(_message);
-                    });
-                }
-        }
-        this.intercomDeviceRepository.save(device);
+                this.intercomDeviceRepository.save(intercomDevice);
+            });
     }
 
     private handleIntercomStatusUpdate(device: IntercomDevice, status: IntercomDeviceStatus) {
@@ -283,8 +295,14 @@ export class WebSocketController {
     }
 
     private handleIntercomPing(device, client) {
-        device.lastSeen = Date.now();
-        this.intercomDeviceRepository.save(device);
+        this.intercomDeviceRepository
+            .findById(device.id)
+            .then(intercomDevice => {
+                if (intercomDevice) {
+                    intercomDevice.lastSeen = Date.now();
+                    this.intercomDeviceRepository.save(intercomDevice);
+                }
+            });
     }
 
     private handleMobileApplicationPing(application, client) {
