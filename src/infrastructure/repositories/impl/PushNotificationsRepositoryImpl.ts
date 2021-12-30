@@ -1,9 +1,7 @@
 import {Inject, Injectable} from "@nestjs/common";
-import firebaseAdmin, {messaging} from 'firebase-admin';
-import {getMessaging} from "firebase-admin/lib/messaging";
 import {MobileApplicationRepository} from "../MobileApplicationRepository";
 import {PushNotificationsRepository} from "../PushNotificationsRepository";
-import TokenMessage = messaging.TokenMessage;
+import admin from "firebase-admin";
 
 @Injectable()
 export class PushNotificationsRepositoryImpl implements PushNotificationsRepository {
@@ -12,8 +10,8 @@ export class PushNotificationsRepositoryImpl implements PushNotificationsReposit
         private mobileApplicationRepository: MobileApplicationRepository
     ) {
         const serviceAccount = require("../../../../__config/firebase-config.json");
-        firebaseAdmin.initializeApp({
-            credential: firebaseAdmin.credential.cert(serviceAccount)
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
         });
     }
 
@@ -21,7 +19,7 @@ export class PushNotificationsRepositoryImpl implements PushNotificationsReposit
         return this.mobileApplicationRepository
             .findAllByAttributes({userId})
             .then(applications => {
-                const notification: TokenMessage = {
+                const notification: admin.messaging.TokenMessage = {
                     token: "",
                     data,
                     notification: {
@@ -40,7 +38,8 @@ export class PushNotificationsRepositoryImpl implements PushNotificationsReposit
                     if (typeof application.notificationToken === 'string' && application.notificationToken.length) {
                         notification.token = application.notificationToken;
                         ((mobileApp) => {
-                            return getMessaging()
+                            return admin
+                                .messaging()
                                 .send(notification)
                                 .catch(error => {
                                     if (error.errorInfo && error.errorInfo.code === "messaging/registration-token-not-registered") {
