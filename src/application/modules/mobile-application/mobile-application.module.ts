@@ -4,12 +4,13 @@ import {
 } from "../../../infrastructure/repositories/impl/MobileApplicationRepositoryImpl";
 
 const MobileApplicationRepositoryProvider = {
-  provide: 'MobileApplicationRepository',
-  useClass: MobileApplicationRepositoryImpl
+    provide: 'MobileApplicationRepository',
+    useClass: MobileApplicationRepositoryImpl
 }
 
 @Module({
-  providers: [MobileApplicationRepositoryProvider],
-  exports: [MobileApplicationRepositoryProvider]
+    providers: [MobileApplicationRepositoryProvider],
+    exports: [MobileApplicationRepositoryProvider]
 })
-export class MobileApplicationModule {}
+export class MobileApplicationModule {
+}

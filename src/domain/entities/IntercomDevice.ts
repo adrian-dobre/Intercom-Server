@@ -49,10 +49,6 @@ export class IntercomDevice extends BaseEntity {
         this.lastStatus = lastStatus;
     }
 
-    getIntercomFormattedConfig(): string {
-        return `${this.autoResponse ? 1 : 0}:${this.autoResponseDelay}:${this.delayForAutoActions}:${this.reportButtonStatus ? 1 : 0}`;
-    }
-
     static from(json: IntercomDevice) {
         return new IntercomDevice(
             json.id,
@@ -65,5 +61,9 @@ export class IntercomDevice extends BaseEntity {
             json.lastSeen,
             json.lastStatus
         );
+    }
+
+    getIntercomFormattedConfig(): string {
+        return `${this.autoResponse ? 1 : 0}:${this.autoResponseDelay}:${this.delayForAutoActions}:${this.reportButtonStatus ? 1 : 0}`;
     }
 }

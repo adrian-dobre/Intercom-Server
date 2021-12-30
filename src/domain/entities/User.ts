@@ -8,7 +8,7 @@ export class User extends BaseEntity {
     username: string;
     @Exclude()
     password: string;
-    @Exclude({toPlainOnly: true })
+    @Exclude({toPlainOnly: true})
     salt: string;
 
     constructor(

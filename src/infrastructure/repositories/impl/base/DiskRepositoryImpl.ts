@@ -15,46 +15,6 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
     private entityBuilder: { from: (json: T) => T };
     private emitter: NodeJS.EventEmitter;
 
-    private persist = (): Promise<void> => {
-        return new Promise((resolve, reject) => {
-            if (this.loaded) {
-                fs.writeFile(this.saveLocation, JSON.stringify(this.entries, null, 2), (error) => {
-                    if (error) {
-                        return reject(error);
-                    }
-                    resolve();
-                });
-            } else {
-                setTimeout(() => {
-                    this.persist().then(resolve).catch(reject);
-                });
-            }
-        })
-    }
-
-    private reIndex = () => {
-        this.entries
-            .forEach((entry, index) => {
-                this.index[entry.id] = index;
-            });
-    }
-
-    private load = () => {
-        if (!this.loaded) {
-            fs.readFile(this.saveLocation, (error, file) => {
-                if (!error) {
-                    try {
-                        this.entries = (JSON.parse(file.toString()) as Array<T>).map(entry => this.entityBuilder.from(entry));
-                        this.reIndex();
-                    } catch (e) {
-                        //log err
-                    }
-                }
-                this.loaded = true;
-            });
-        }
-    }
-
     constructor(entityBuilder: { from: (json: T) => T }) {
         this.entityBuilder = entityBuilder;
         this.emitter = new EventEmitter();
@@ -122,7 +82,6 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
         }))
     }
 
-
     findAllByAttributes = (attributes: { [k in keyof Partial<T>]: any }): Promise<T[]> => {
         return new Promise<T[]>(resolve => {
             if (this.loaded) {
@@ -146,23 +105,6 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
         });
     }
 
-    private findCandidates(attributes: { [k in keyof Partial<T>]: any }): Promise<T[]> {
-        return new Promise(resolve => {
-            if (attributes.id != undefined) {
-                this.findById(attributes.id)
-                    .then(result => {
-                        let candidates = [];
-                        if (result) {
-                            candidates.push(result);
-                        }
-                        resolve(candidates);
-                    });
-            } else {
-                resolve([...this.entries].map(entry => this.entityBuilder.from(entry)));
-            }
-        });
-    }
-
     findByAttributes = (attributes: { [k in keyof Partial<T>]: any }): Promise<T | null> => {
         return this
             .findAllByAttributes(attributes)
@@ -178,5 +120,62 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
 
     on(event: RepositoryEvent, callback: (event: { entity: T, changedProperties: string[] }) => void) {
         this.emitter.on(event, callback);
+    }
+
+    private persist = (): Promise<void> => {
+        return new Promise((resolve, reject) => {
+            if (this.loaded) {
+                fs.writeFile(this.saveLocation, JSON.stringify(this.entries, null, 2), (error) => {
+                    if (error) {
+                        return reject(error);
+                    }
+                    resolve();
+                });
+            } else {
+                setTimeout(() => {
+                    this.persist().then(resolve).catch(reject);
+                });
+            }
+        })
+    }
+
+    private reIndex = () => {
+        this.entries
+            .forEach((entry, index) => {
+                this.index[entry.id] = index;
+            });
+    }
+
+    private load = () => {
+        if (!this.loaded) {
+            fs.readFile(this.saveLocation, (error, file) => {
+                if (!error) {
+                    try {
+                        this.entries = (JSON.parse(file.toString()) as Array<T>).map(entry => this.entityBuilder.from(entry));
+                        this.reIndex();
+                    } catch (e) {
+                        //log err
+                    }
+                }
+                this.loaded = true;
+            });
+        }
+    }
+
+    private findCandidates(attributes: { [k in keyof Partial<T>]: any }): Promise<T[]> {
+        return new Promise(resolve => {
+            if (attributes.id != undefined) {
+                this.findById(attributes.id)
+                    .then(result => {
+                        let candidates = [];
+                        if (result) {
+                            candidates.push(result);
+                        }
+                        resolve(candidates);
+                    });
+            } else {
+                resolve([...this.entries].map(entry => this.entityBuilder.from(entry)));
+            }
+        });
     }
 }

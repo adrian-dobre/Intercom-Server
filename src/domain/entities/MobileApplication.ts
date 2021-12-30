@@ -1,6 +1,6 @@
 import {BaseEntity} from "./base/BaseEntity";
 
-export class MobileApplication extends BaseEntity{
+export class MobileApplication extends BaseEntity {
     userId: string;
     notificationToken: string;
 

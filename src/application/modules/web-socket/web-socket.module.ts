@@ -8,7 +8,8 @@ import {CallLogModule} from "../call-log/call-log.module";
 
 
 @Module({
-  imports: [IntercomDeviceModule, MobileApplicationModule, UserModule, PushNotificationModule, CallLogModule],
-  controllers: [WebSocketController]
+    imports: [IntercomDeviceModule, MobileApplicationModule, UserModule, PushNotificationModule, CallLogModule],
+    controllers: [WebSocketController]
 })
-export class WebSocketModule {}
+export class WebSocketModule {
+}

@@ -4,13 +4,14 @@ import {IntercomDeviceRepositoryImpl} from "../../../infrastructure/repositories
 
 
 const IntercomDeviceRepositoryProvider = {
-  provide: 'IntercomDeviceRepository',
-  useClass: IntercomDeviceRepositoryImpl
+    provide: 'IntercomDeviceRepository',
+    useClass: IntercomDeviceRepositoryImpl
 }
 
 @Module({
-  providers: [IntercomDeviceRepositoryProvider],
-  controllers: [IntercomDeviceController],
-  exports: [IntercomDeviceRepositoryProvider],
+    providers: [IntercomDeviceRepositoryProvider],
+    controllers: [IntercomDeviceController],
+    exports: [IntercomDeviceRepositoryProvider],
 })
-export class IntercomDeviceModule {}
+export class IntercomDeviceModule {
+}
