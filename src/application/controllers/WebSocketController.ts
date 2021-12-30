@@ -42,7 +42,7 @@ export class WebSocketController {
         });
 
         server.on('upgrade', this.handleUpgrade);
-        server.listen(8081);
+        server.listen(3005);
         this.monitorIntercomDevices();
         this.intercomDeviceRepository.on(RepositoryEvent.UPDATE, (updateEvent => {
             this.sendIntercomConfigUpdate(updateEvent);
@@ -335,6 +335,6 @@ export class WebSocketController {
                     });
                     this.monitorIntercomDevices();
                 });
-        }, 60000);
+        }, 5 * 60000);
     }
 }

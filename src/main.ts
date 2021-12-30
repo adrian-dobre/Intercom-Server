@@ -15,5 +15,5 @@ import {AppModule} from "./application/app.module";
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document);
 
-    await app.listen(3000);
+    await app.listen(3004);
 })();
