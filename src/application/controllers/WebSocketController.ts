@@ -52,7 +52,7 @@ export class WebSocketController {
     }
 
     private sendIntercomConfigUpdate(updateEvent: { entity: IntercomDevice; changedProperties: string[] }) {
-        this.logger.debug(`Intercom device updated. Changed props: ${updateEvent.changedProperties.join('')}`);
+        this.logger.debug(`Intercom device updated. Changed props: ${updateEvent.changedProperties.join(', ')}`);
         if (this.isIntercomConfigUpdate(updateEvent)) {
             const connectedDevices = connectedIntercomDevices[updateEvent.entity.id];
             if (Array.isArray(connectedDevices)) {
@@ -150,7 +150,7 @@ export class WebSocketController {
         this.pushNotificationsRepository.sendNotificationToUser(
             device.userId,
             'Intercom device connected',
-            'Intercom device connected to the server',
+            `Intercom device ${device.name} connected to the server`,
             {
                 deviceId: device.id
             }
@@ -259,7 +259,7 @@ export class WebSocketController {
         this.pushNotificationsRepository.sendNotificationToUser(
             device.userId,
             'Incoming Intercom call',
-            'Intercom device is ringing',
+            `Intercom device ${device.name} is ringing`,
             {
                 deviceId: device.id
             }
@@ -313,7 +313,7 @@ export class WebSocketController {
         this.pushNotificationsRepository.sendNotificationToUser(
             device.userId,
             'Intercom device disconnected',
-            'Intercom device was disconnected to the server',
+            `Intercom device ${device.name} was disconnected from the server`,
             {
                 deviceId: device.id
             }
@@ -344,7 +344,7 @@ export class WebSocketController {
                                 device.userId,
                                 'Intercom device missing',
                                 // @ts-ignore
-                                `Intercom device was last seen at ${dateFormat(device.lastSeen, "dd/mm/yy HH:MM:ss o")}`,
+                                `Intercom device ${device.name} was last seen at ${dateFormat(device.lastSeen, "dd/mm/yy HH:MM:ss o")}`,
                                 {
                                     deviceId: device.id
                                 }
