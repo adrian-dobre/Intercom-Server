@@ -1,5 +1,6 @@
 import {BaseEntity} from "../../../../domain/entities/base/BaseEntity";
 import {DiskRepository, RepositoryEvent} from "../../base/DiskRepository";
+import {Logger} from "@nestjs/common";
 
 
 const fs = require('fs');
@@ -14,6 +15,7 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
     private index: { [k: string]: number } = {};
     private entityBuilder: { from: (json: T) => T };
     private emitter: NodeJS.EventEmitter;
+    private readonly logger = new Logger(DiskRepositoryImpl.name);
 
     constructor(entityBuilder: { from: (json: T) => T }) {
         this.entityBuilder = entityBuilder;
@@ -23,7 +25,7 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
         (function persistInterval() {
             setTimeout(() => {
                 self.persist()
-                    .catch(console.error)
+                    .catch(self.logger.error)
                     .then(persistInterval)
             }, 10000);
         })();
@@ -35,23 +37,9 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
             if (this.loaded) {
                 const index = this.index[entity.id];
                 if (index != undefined) {
-                    const previousEntity = this.entries[index];
-                    const changedProperties = [];
-                    Object.keys(entity)
-                        .forEach(property => {
-                            if (previousEntity[property] != entity[property]) {
-                                changedProperties.push(property);
-                            }
-                        });
-                    this.entries[index] = this.entityBuilder.from({
-                        ...previousEntity, ...entity,
-                        id: previousEntity.id
-                    });
-                    if (changedProperties.length) {
-                        setTimeout(() => {
-                            this.emitter.emit(RepositoryEvent.UPDATE, {entity: this.entries[index], changedProperties});
-                        });
-                    }
+                    this
+                        .updateById(entity.id, entity)
+                        .then(resolve);
                 } else {
                     this.entries.push(entity);
                     this.reIndex();
@@ -59,9 +47,50 @@ export class DiskRepositoryImpl<T extends BaseEntity> implements DiskRepository<
                 return resolve(entity);
             } else {
                 setTimeout(() => {
-                    this.save(entity).then(() => {
-                        resolve(entity);
+                    this
+                        .save(entity)
+                        .then(resolve);
+                });
+            }
+        });
+    }
+
+    updateById(id: string, updatedProperties: Partial<T>): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            if (this.loaded) {
+                const index = this.index[id];
+                if (index == undefined) {
+                    return reject(new Error(`Entity with ${id} not found`));
+                }
+                const previousEntity = this.entries[index];
+                const changedProperties = [];
+                Object
+                    .keys(updatedProperties)
+                    .forEach(property => {
+                        if (previousEntity[property] != updatedProperties[property]) {
+                            changedProperties.push(property);
+                        }
                     });
+                this.entries[index] = this.entityBuilder.from({
+                    ...previousEntity, ...updatedProperties,
+                    id: previousEntity.id
+                });
+                if (changedProperties.length) {
+                    ((updatedEntry) => {
+                        setTimeout(() => {
+                            this.emitter.emit(RepositoryEvent.UPDATE, {
+                                entity: updatedEntry,
+                                changedProperties
+                            });
+                        });
+                    })(this.entries[index])
+                }
+                resolve(this.entries[index]);
+            } else {
+                setTimeout(() => {
+                    this
+                        .updateById(id, updatedProperties)
+                        .then(resolve);
                 });
             }
         });

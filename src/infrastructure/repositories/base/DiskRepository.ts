@@ -8,6 +8,8 @@ export interface DiskRepository<T extends BaseEntity> {
 
     save(entity: T): Promise<T>;
 
+    updateById(id: string, updatedProperties: Partial<T>): Promise<T>
+
     findById(id: string): Promise<T | null>;
 
     findAllByAttributes(attributes: { [k in keyof Partial<T>]: any }): Promise<T[]>;

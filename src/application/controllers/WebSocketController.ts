@@ -52,7 +52,7 @@ export class WebSocketController {
     }
 
     private sendIntercomConfigUpdate(updateEvent: { entity: IntercomDevice; changedProperties: string[] }) {
-        this.logger.debug(`Intercom device updated. Changed props: ${updateEvent.changedProperties.join(', ')}`);
+        this.logger.debug(`Intercom device updated. Changed props: ${updateEvent.changedProperties.join(', ')}:\n${JSON.stringify(updateEvent.entity)}`);
         if (this.isIntercomConfigUpdate(updateEvent)) {
             const connectedDevices = connectedIntercomDevices[updateEvent.entity.id];
             if (Array.isArray(connectedDevices)) {
@@ -113,7 +113,8 @@ export class WebSocketController {
                 }
                 connectedMobileApplications[user.id].push(ws);
                 this.handleMobileApplicationConnection(application, ws);
-            });
+            })
+            .catch(error => this.logger.error(error.message));
     }
 
     private handleIntercomConnectionUpgrade(clientInfo: ClientInformation, user: User, ws) {
@@ -121,12 +122,13 @@ export class WebSocketController {
             .findById(clientInfo.id)
             .then(device => {
                 if (!device) {
-                    return this.intercomDeviceRepository
-                        .save(new IntercomDevice(clientInfo.id, user.id, clientInfo.name))
+                    return this
+                        .intercomDeviceRepository
+                        .save(new IntercomDevice(clientInfo.id, user.id, clientInfo.name));
                 } else {
-                    device.lastSeen = Date.now();
-                    return this.intercomDeviceRepository
-                        .save(device);
+                    return this
+                        .intercomDeviceRepository
+                        .updateById(device.id, {lastSeen: Date.now()});
                 }
             })
             .then((device) => {
@@ -135,7 +137,8 @@ export class WebSocketController {
                 }
                 connectedIntercomDevices[device.id].push(ws);
                 this.handleIntercomConnection(device, ws);
-            });
+            })
+            .catch(error => this.logger.error(error.message));
     }
 
     private parseMessageType = (message: string): { type: IntercomDeviceMessageType, params: number[] } => {
@@ -182,9 +185,11 @@ export class WebSocketController {
             .findById(device.id)
             .then(intercomDevice => {
                 if (intercomDevice == null) {
-                    return
+                    return;
                 }
-                intercomDevice.lastSeen = Date.now();
+                this.intercomDeviceRepository
+                    .updateById(intercomDevice.id, {lastSeen: Date.now()})
+                    .catch(error => this.logger.error(error.message));
                 let parsedMessage = this.parseMessageType(message.toString());
                 switch (parsedMessage.type) {
                     case IntercomDeviceMessageType.IntercomConfiguration:
@@ -195,7 +200,10 @@ export class WebSocketController {
                         break;
                     case IntercomDeviceMessageType.IntercomStatusEvent:
                         let status = parsedMessage.params[0];
-                        intercomDevice.lastStatus = status;
+                        this.logger.debug(`Intercom status received: ${intercomDevice.lastStatus}`);
+                        this.intercomDeviceRepository
+                            .updateById(intercomDevice.id, {lastStatus: status})
+                            .catch(error => this.logger.error(error.message));
                         if (status === IntercomDeviceStatus.Ring) {
                             this.handleNewIntercomIncomingCall(intercomDevice);
                         } else if ([IntercomDeviceStatus.Talk, IntercomDeviceStatus.Open, IntercomDeviceStatus.Ready].includes(status)) {
@@ -215,7 +223,6 @@ export class WebSocketController {
                             });
                         }
                 }
-                this.intercomDeviceRepository.save(intercomDevice);
             });
     }
 
@@ -228,34 +235,39 @@ export class WebSocketController {
             .then(lastEntry => {
                 if (lastEntry && (Date.now() - lastEntry.time < 120000)) {
                     const savedStatus = lastEntry.status;
-                    switch (lastEntry.status) {
+                    let currentStatus = savedStatus;
+                    switch (savedStatus) {
                         case CallLogEntryStatus.RINGING:
                             switch (status) {
                                 case IntercomDeviceStatus.Talk:
-                                    lastEntry.status = CallLogEntryStatus.ANSWERED;
+                                    currentStatus = CallLogEntryStatus.ANSWERED;
                                     break;
                                 case IntercomDeviceStatus.Open:
-                                    lastEntry.status = CallLogEntryStatus.OPENED;
+                                    currentStatus = CallLogEntryStatus.OPENED;
                                     break;
                                 case IntercomDeviceStatus.Ready:
-                                    lastEntry.status = CallLogEntryStatus.MISSED;
+                                    currentStatus = CallLogEntryStatus.MISSED;
                             }
                             break;
                         case CallLogEntryStatus.ANSWERED:
                             if (status === IntercomDeviceStatus.Open) {
-                                lastEntry.status = CallLogEntryStatus.OPENED;
+                                currentStatus = CallLogEntryStatus.OPENED;
                             }
                             break;
                     }
-                    if (lastEntry.status !== savedStatus) {
-                        this.callLogRepository.save(lastEntry);
+                    if (currentStatus !== savedStatus) {
+                        this.callLogRepository
+                            .updateById(lastEntry.id, {status: currentStatus})
+                            .catch(error => this.logger.error(error.message));
                     }
                 }
             });
     }
 
     private handleNewIntercomIncomingCall(device: IntercomDevice) {
-        this.callLogRepository.save(new CallLogEntry(device.id, Date.now(), CallLogEntryStatus.RINGING));
+        this.callLogRepository
+            .save(new CallLogEntry(device.id, Date.now(), CallLogEntryStatus.RINGING))
+            .catch(error => this.logger.error(error.message));
         this.pushNotificationsRepository.sendNotificationToUser(
             device.userId,
             'Incoming Intercom call',
@@ -275,7 +287,7 @@ export class WebSocketController {
                 application
             );
         } catch (error) {
-            console.error(error);
+            this.logger.error(error);
         }
     }
 
@@ -296,13 +308,8 @@ export class WebSocketController {
 
     private handleIntercomPing(device, client) {
         this.intercomDeviceRepository
-            .findById(device.id)
-            .then(intercomDevice => {
-                if (intercomDevice) {
-                    intercomDevice.lastSeen = Date.now();
-                    this.intercomDeviceRepository.save(intercomDevice);
-                }
-            });
+            .updateById(device.id, {lastSeen: Date.now()})
+            .catch(error => this.logger.error(error.message));
     }
 
     private handleMobileApplicationPing(application, client) {

@@ -6,6 +6,7 @@ import admin from "firebase-admin";
 @Injectable()
 export class PushNotificationsRepositoryImpl implements PushNotificationsRepository {
     private readonly logger = new Logger(PushNotificationsRepositoryImpl.name);
+
     constructor(
         @Inject('MobileApplicationRepository')
         private mobileApplicationRepository: MobileApplicationRepository
@@ -47,7 +48,7 @@ export class PushNotificationsRepositoryImpl implements PushNotificationsReposit
                                     if (error.errorInfo && error.errorInfo.code === "messaging/registration-token-not-registered") {
                                         this.mobileApplicationRepository.remove(mobileApp);
                                     }
-                                    console.error(error);
+                                    this.logger.error(error);
                                 });
                         })(application);
                     }

@@ -1,7 +1,7 @@
 import {Module} from '@nestjs/common';
 import {MobileApplicationModule} from "../mobile-application/mobile-application.module";
 import {
-  PushNotificationsRepositoryImpl
+    PushNotificationsRepositoryImpl
 } from "../../../infrastructure/repositories/impl/PushNotificationsRepositoryImpl";
 
 const PushNotificationsRepositoryProvider = {
