@@ -15,11 +15,11 @@ Note: It will NOT forward audio to/from device.
 
 The solution is composed from 3 components:
 
-1. A device that interfaces with the Electra device, it needs to be installed inside the device and connected to the PAS.17A board via 3 singnal wires and 2 power wires (see below). This will detect device signals (ring, talk, open) and send commands (talk, listen, open) and will communicate via WebSockets with an application server [see this page](https://github.com/adrian-dobre/Nano33IoT-Electra-Intercom)
+1. A device that interfaces with the Electra device - [see this page](https://github.com/adrian-dobre/Nano33IoT-Electra-Intercom)
 
 2. An application server - this repository contains the source code for the Application Server.
 
-3. A mobile application - to be updated.
+3. A mobile application - [see this page](https://github.com/adrian-dobre/Intercom-MobileApp)
 
 ![App Demo](./demo/images/app_demo.gif?raw=true)
 ![App Settings](./demo/images/app_settings.png?raw=true)
