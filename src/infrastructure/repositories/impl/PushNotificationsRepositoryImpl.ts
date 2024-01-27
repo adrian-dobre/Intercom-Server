@@ -28,6 +28,9 @@ export class PushNotificationsRepositoryImpl implements PushNotificationsReposit
                         title,
                         body
                     },
+                    android: {
+                        priority: "high"
+                    },
                     apns: {
                         payload: {
                             aps: {
